@@ -4,29 +4,29 @@ contract MultiSignatureWallet {
 
     event Deposit(address indexed sender, uint value);
     event Submission(uint indexed transactionId);
-    event Confirmation(address indexed sender, uint indexed transactionId);
     event Execution(uint indexed transactionId);
     event ExecutionFailure(uint indexed transactionId);
+    event Confirmation(address indexed sender, uint indexed transactionId);
+    event Revocation(address indexed sender, uint indexed transactionId);
+   
     
     struct Transaction {
-      bool executed;
       address destination;
       uint value;
       bytes data;
+      bool executed;
     }
 
     address[] public owners;
     uint public required;
-    mapping (address => bool) public isOwner;
-    
     uint public transactionCount;
+    
+    mapping (address => bool) public isOwner;
     mapping (uint => Transaction) public transactions;
-    
-    // This variable keeps track of which owner addresses have confirmed which transactions.
-    mapping (uint => mapping (address => bool)) public confirmations;
+    mapping (uint => mapping (address => bool)) public confirmations; // This variable keeps track of which owner addresses have confirmed which transactions.
     
     
-     modifier validRequirement(uint ownerCount, uint _required) {
+    modifier validRequirement(uint ownerCount, uint _required) {
         if (   _required > ownerCount || _required == 0 || ownerCount == 0)
             revert();
         _;
@@ -78,8 +78,7 @@ contract MultiSignatureWallet {
         require(transactions[transactionId].destination != address(0));
         require(confirmations[transactionId][msg.sender] == false);
         
-    // Once the transaction receives the required number of confirmations
-        confirmations[transactionId][msg.sender] = true;
+        confirmations[transactionId][msg.sender] = true; // Once the transaction receives the required number of confirmations
         emit Confirmation(msg.sender, transactionId);
         executeTransaction(transactionId);
         
@@ -87,7 +86,17 @@ contract MultiSignatureWallet {
 
     /// @dev Allows an owner to revoke a confirmation for a transaction.
     /// @param transactionId Transaction ID.
-    function revokeConfirmation(uint transactionId) public {}
+    function revokeConfirmation(uint transactionId) public {
+        
+        require(isOwner[msg.sender]);
+        require(transactions[transactionId].destination != address(0));
+        require(confirmations[transactionId][msg.sender] == true);
+        require(transactions[transactionId].executed == true);
+        
+        confirmations[transactionId][msg.sender] = false;
+        emit Revocation(msg.sender, transactionId);
+        
+    }
 
     /// @dev Allows anyone to execute a confirmed transaction.
     /// @param transactionId Transaction ID.
